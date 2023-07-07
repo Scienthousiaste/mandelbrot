@@ -8,30 +8,89 @@ let maxX = 1.1;
 let maxY = 1.1;
 
 let zoomF = 0.5;
-
 let canvas;
 let context;
+
+/*
+TODOS
+- better code
+- use shader to compute the pixel color
+- find a way to have beautiful colors
+*/
 
 document.addEventListener("DOMContentLoaded", () => {
     canvas = document.querySelector("#mandelbrot");
     context = canvas.getContext("2d");
 
     canvas.addEventListener("click", zoomOnClick);
+    document.addEventListener("mousemove", onMouseMove);
     displayMandelbrot();
 })
+
+function onMouseMove(e) {
+    /*
+     e.clientX, e.clientY; // same as e.x, e.y - The X coordinate of the mouse pointer in local (DOM content) coordinates.
+    layerX - Returns the horizontal coordinate of the event relative to the current layer. !!!non standard!!!
+    screenX - The X coordinate of the mouse pointer in global (screen) coordinates.
+    offsetX - The X coordinate of the mouse pointer relative to the position of the padding edge of the target node.
+    movementX - The X coordinate of the mouse pointer relative to the position of the last mousemove event.
+    pageX - The X coordinate of the mouse pointer relative to the whole document.
+     */
+
+    const mouseInfo = document.querySelector(".mouse-info");
+    mouseInfo.replaceChildren();
+
+    displayCoords(mouseInfo, "Layer", {x: e.layerX, y: e.layerY});
+    displayCoords(mouseInfo, "Screen", {x: e.screenX, y: e.screenY});
+    displayCoords(mouseInfo, "Offset", {x: e.offsetX, y: e.offsetY});
+    displayCoords(mouseInfo, "Page", {x: e.pageX, y: e.pageY});
+
+
+    const xClicked = mathsCoord(minX, maxX, e.offsetX, WIDTH_CANVAS);
+    const yClicked = mathsCoord(minY, maxY, e.offsetY, HEIGHT_CANVAS);
+    const proportion = {
+        x: ((xClicked - minX) / (maxX - minX)).toFixed(5),
+        y: ((yClicked - minY) / (maxY - minY)).toFixed(5),
+    }
+    displayCoords(mouseInfo, "Mandelbrot space", {x: xClicked.toFixed(5), y: yClicked.toFixed(5)});
+    displayCoords(mouseInfo, "Proportion", proportion);
+}
+
+function newDomElement(tag, content, classes) {
+    const elem = document.createElement(tag);
+    const node = document.createTextNode(content);
+    elem.appendChild(node);
+    if (classes) {
+        elem.classList = classes;
+    }
+    return elem;
+}
+
+function displayCoords(domElem, title, coords) {
+    const container = newDomElement("div", "");
+    container.appendChild(newDomElement("div", title, "title-coords"));
+    const coordsContainer = newDomElement("div", "", "coords");
+    coordsContainer.appendChild(newDomElement("div", `x: ${coords.x}, y: ${coords.y}`));
+    container.appendChild(coordsContainer);
+
+    domElem.appendChild(container);
+}
 
 function zoomOnClick(e) {
     const newWidth = (maxX - minX) * zoomF;
     const newHeight = (maxY - minY) * zoomF;
 
-    const xClicked = mathsCoord(minX, maxX, e.x, WIDTH_CANVAS);
-    const yClicked = mathsCoord(minY, maxY, e.y, HEIGHT_CANVAS);
+    const xClicked = mathsCoord(minX, maxX, e.offsetX, WIDTH_CANVAS);
+    const yClicked = mathsCoord(minY, maxY, e.offsetY, HEIGHT_CANVAS);
+    const proportion = {
+        x: (xClicked - minX) / (maxX - minX),
+        y: (yClicked - minY) / (maxY - minY),
+    }
 
-    console.log(`Clicked on (x: ${e.x}, y: ${e.y}), (${xClicked}, ${yClicked}), newWidth ${newWidth}, newHeight ${newHeight}`)
-    minX = xClicked - (newWidth / 2);
-    maxX = xClicked + (newWidth / 2);
-    minY = yClicked - (newHeight / 2);
-    maxY = yClicked + (newHeight / 2);
+    minX = xClicked - (proportion.x * newWidth);
+    maxX = xClicked + ((1 - proportion.x) * newWidth);
+    minY = yClicked - (proportion.y * newHeight);
+    maxY = yClicked + ((1 - proportion.y) * newHeight);
     displayMandelbrot();
 }
 
@@ -48,8 +107,7 @@ function norm(z) {
 }
 
 function chooseColor(n) {
-    // TODO: make it so that n is a proportion of 255
-    return [255 - n, 255 - n, 255 - n]
+    return [255 - n, 255 - (n % 255), 255 - (n % 255)]
 }
 
 function putPixel(x, y, color) {

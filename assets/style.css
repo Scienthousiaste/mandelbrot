@@ -1,0 +1,16 @@
+canvas {
+    border: solid 1px gray;
+}
+
+main {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+}
+
+.mouse-info {
+    position: absolute;
+    right: 30px;
+    width: 170px;
+}
