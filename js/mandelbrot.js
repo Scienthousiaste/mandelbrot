@@ -2,10 +2,8 @@ const HEIGHT_CANVAS = 800
 const WIDTH_CANVAS = 1200
 const MAX_ITERATION = 255
 
-let minX = -2.1;
-let minY = -1.1;
-let maxX = 1.1;
-let maxY = 1.1;
+let min = {x: -2.1, y: -1.1}
+let max = {x: 1.1, y: 1.1}
 
 let zoomF = 0.5;
 let canvas;
@@ -13,8 +11,8 @@ let context;
 
 /*
 TODOS
-- better code
 - use shader to compute the pixel color
+- UI: reset button, directional moves, add max_iter, unzoom
 - find a way to have beautiful colors
 */
 
@@ -45,14 +43,15 @@ function onMouseMove(e) {
     displayCoords(mouseInfo, "Offset", {x: e.offsetX, y: e.offsetY});
     displayCoords(mouseInfo, "Page", {x: e.pageX, y: e.pageY});
 
-
-    const xClicked = mathsCoord(minX, maxX, e.offsetX, WIDTH_CANVAS);
-    const yClicked = mathsCoord(minY, maxY, e.offsetY, HEIGHT_CANVAS);
-    const proportion = {
-        x: ((xClicked - minX) / (maxX - minX)).toFixed(5),
-        y: ((yClicked - minY) / (maxY - minY)).toFixed(5),
+    const clicked = {
+        x: mathsCoord(min.x, max.x, e.offsetX, WIDTH_CANVAS),
+        y: mathsCoord(min.y, max.y, e.offsetY, HEIGHT_CANVAS)
     }
-    displayCoords(mouseInfo, "Mandelbrot space", {x: xClicked.toFixed(5), y: yClicked.toFixed(5)});
+    const proportion = {
+        x: ((clicked.x - min.x) / (max.x - min.x)).toFixed(5),
+        y: ((clicked.y - min.y) / (max.y - min.y)).toFixed(5),
+    }
+    displayCoords(mouseInfo, "Mandelbrot space", {x: clicked.x.toFixed(5), y: clicked.x.toFixed(5)});
     displayCoords(mouseInfo, "Proportion", proportion);
 }
 
@@ -77,20 +76,26 @@ function displayCoords(domElem, title, coords) {
 }
 
 function zoomOnClick(e) {
-    const newWidth = (maxX - minX) * zoomF;
-    const newHeight = (maxY - minY) * zoomF;
+    const newWidth = (max.x - min.x) * zoomF;
+    const newHeight = (max.y - min.y) * zoomF;
 
-    const xClicked = mathsCoord(minX, maxX, e.offsetX, WIDTH_CANVAS);
-    const yClicked = mathsCoord(minY, maxY, e.offsetY, HEIGHT_CANVAS);
+    const clicked = {
+        x: mathsCoord(min.x, max.x, e.offsetX, WIDTH_CANVAS),
+        y: mathsCoord(min.y, max.y, e.offsetY, HEIGHT_CANVAS)
+    }
     const proportion = {
-        x: (xClicked - minX) / (maxX - minX),
-        y: (yClicked - minY) / (maxY - minY),
+        x: (clicked.x - min.x) / (max.x - min.x),
+        y: (clicked.y - min.y) / (max.y - min.y),
     }
 
-    minX = xClicked - (proportion.x * newWidth);
-    maxX = xClicked + ((1 - proportion.x) * newWidth);
-    minY = yClicked - (proportion.y * newHeight);
-    maxY = yClicked + ((1 - proportion.y) * newHeight);
+    min = {
+        x: clicked.x - (proportion.x * newWidth),
+        y: clicked.y - (proportion.y * newHeight)
+    }
+    max = {
+        x: clicked.x + ((1 - proportion.x) * newWidth),
+        y: clicked.y + ((1 - proportion.y) * newHeight)
+    }
     displayMandelbrot();
 }
 
@@ -119,8 +124,8 @@ function displayMandelbrot() {
     for (let x = 0; x < WIDTH_CANVAS; x++) {
         for (let y = 0; y < HEIGHT_CANVAS; y++) {
             const c = {
-                re: mathsCoord(minX, maxX, x, WIDTH_CANVAS),
-                im: mathsCoord(minY, maxY, y, HEIGHT_CANVAS)
+                re: mathsCoord(min.x, max.x, x, WIDTH_CANVAS),
+                im: mathsCoord(min.y, max.y, y, HEIGHT_CANVAS)
             }
 
             let z = c;
