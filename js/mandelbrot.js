@@ -5,6 +5,7 @@ const INIT_MIN = {x: -2.1, y: -1.1}
 const INIT_MAX = {x: 1.1, y: 1.1}
 
 let zoomF = 0.5;
+let translationF = 0.1;
 let min;
 let max;
 let canvas;
@@ -14,7 +15,7 @@ let iterationNumber;
 /*
 TODOS
 - use shader to compute the pixel color
-- UI: directional moves, add max_iter, unzoom
+- unzoom
 - find a way to have beautiful colors
 */
 
@@ -30,8 +31,33 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelector("#increase-iteration-50").addEventListener("click", makeIncreaseIterationsBy(50));
     document.querySelector("#increase-iteration-250").addEventListener("click", makeIncreaseIterationsBy(250));
 
+    document.addEventListener("keydown", translateOnArrowPresses);
     initialize();
 })
+
+function translateOnArrowPresses(e) {
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        switch(e.key) {
+            case "ArrowUp":
+                min.y -= translationF * displayedHeight();
+                max.y -= translationF * displayedHeight();
+                break;
+            case "ArrowDown":
+                min.y += translationF * displayedHeight();
+                max.y += translationF * displayedHeight();
+                break;
+            case "ArrowLeft":
+                min.x -= translationF * displayedHeight();
+                max.x -= translationF * displayedHeight();
+                break;
+            case "ArrowRight":
+                min.x += translationF * displayedHeight();
+                max.x += translationF * displayedHeight();
+                break;
+        }
+        displayMandelbrot();
+    }
+}
 
 function makeIncreaseIterationsBy(n) {
     return function() {
@@ -70,8 +96,8 @@ function onMouseMove(e) {
         y: mathsCoord(min.y, max.y, e.offsetY, HEIGHT_CANVAS)
     }
     const proportion = {
-        x: ((clicked.x - min.x) / (max.x - min.x)).toFixed(5),
-        y: ((clicked.y - min.y) / (max.y - min.y)).toFixed(5),
+        x: ((clicked.x - min.x) / displayedWidth()).toFixed(5),
+        y: ((clicked.y - min.y) / displayedHeight()).toFixed(5),
     }
     displayCoords(mouseInfo, "Mandelbrot space", {x: clicked.x.toFixed(5), y: clicked.x.toFixed(5)});
     displayCoords(mouseInfo, "Proportion", proportion);
@@ -102,17 +128,25 @@ function displayNumberIterations(domElem) {
     domElem.appendChild(newDomElement("div", `Number of iterations = ${iterationNumber}`));
 }
 
+function displayedWidth() {
+    return (max.x - min.x);
+}
+
+function displayedHeight() {
+    return (max.y - min.y);
+}
+
 function zoomOnClick(e) {
-    const newWidth = (max.x - min.x) * zoomF;
-    const newHeight = (max.y - min.y) * zoomF;
+    const newWidth = displayedWidth() * zoomF;
+    const newHeight = displayedHeight() * zoomF;
 
     const clicked = {
         x: mathsCoord(min.x, max.x, e.offsetX, WIDTH_CANVAS),
         y: mathsCoord(min.y, max.y, e.offsetY, HEIGHT_CANVAS)
     }
     const proportion = {
-        x: (clicked.x - min.x) / (max.x - min.x),
-        y: (clicked.y - min.y) / (max.y - min.y),
+        x: (clicked.x - min.x) / displayedWidth(),
+        y: (clicked.y - min.y) / displayedHeight(),
     }
 
     min = {
