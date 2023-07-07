@@ -1,3 +1,8 @@
+
+body {
+    font-family: "Helvetica", "Arial", sans-serif;
+}
+
 canvas {
     border: solid 1px gray;
 }
@@ -13,4 +18,27 @@ main {
     position: absolute;
     right: 30px;
     width: 170px;
+}
+
+.central-column {
+    display: flex;
+    flex-direction: column;
+}
+.control-panel {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.button {
+    padding: 15px 25px;
+    margin: 10px;
+    border-radius: 5px;
+    background-color: darkgreen;
+    color: white;
+    cursor: pointer;
+}
+
+.button:hover {
+    background-color: green;
 }

@@ -1,18 +1,20 @@
 const HEIGHT_CANVAS = 800
 const WIDTH_CANVAS = 1200
-const MAX_ITERATION = 255
-
-let min = {x: -2.1, y: -1.1}
-let max = {x: 1.1, y: 1.1}
+const INIT_ITERATION_NUMBER = 255
+const INIT_MIN = {x: -2.1, y: -1.1}
+const INIT_MAX = {x: 1.1, y: 1.1}
 
 let zoomF = 0.5;
+let min;
+let max;
 let canvas;
 let context;
+let iterationNumber;
 
 /*
 TODOS
 - use shader to compute the pixel color
-- UI: reset button, directional moves, add max_iter, unzoom
+- UI: directional moves, add max_iter, unzoom
 - find a way to have beautiful colors
 */
 
@@ -22,8 +24,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     canvas.addEventListener("click", zoomOnClick);
     document.addEventListener("mousemove", onMouseMove);
-    displayMandelbrot();
+    document.querySelector("#reset").addEventListener("click", initialize);
+    document.querySelector("#increase-iteration-1").addEventListener("click", makeIncreaseIterationsBy(1));
+    document.querySelector("#increase-iteration-10").addEventListener("click", makeIncreaseIterationsBy(10));
+    document.querySelector("#increase-iteration-50").addEventListener("click", makeIncreaseIterationsBy(50));
+    document.querySelector("#increase-iteration-250").addEventListener("click", makeIncreaseIterationsBy(250));
+
+    initialize();
 })
+
+function makeIncreaseIterationsBy(n) {
+    return function() {
+        iterationNumber += n;
+        displayMandelbrot();
+    }
+}
+
+function initialize() {
+    min = {...INIT_MIN};
+    max = {...INIT_MAX};
+    iterationNumber = INIT_ITERATION_NUMBER;
+    displayMandelbrot();
+}
 
 function onMouseMove(e) {
     /*
@@ -53,6 +75,7 @@ function onMouseMove(e) {
     }
     displayCoords(mouseInfo, "Mandelbrot space", {x: clicked.x.toFixed(5), y: clicked.x.toFixed(5)});
     displayCoords(mouseInfo, "Proportion", proportion);
+    displayNumberIterations(mouseInfo);
 }
 
 function newDomElement(tag, content, classes) {
@@ -73,6 +96,10 @@ function displayCoords(domElem, title, coords) {
     container.appendChild(coordsContainer);
 
     domElem.appendChild(container);
+}
+
+function displayNumberIterations(domElem) {
+    domElem.appendChild(newDomElement("div", `Number of iterations = ${iterationNumber}`));
 }
 
 function zoomOnClick(e) {
@@ -130,14 +157,14 @@ function displayMandelbrot() {
 
             let z = c;
 
-            for (let i = 0; i < MAX_ITERATION; i++) {
+            for (let i = 0; i < iterationNumber; i++) {
                 z = addComplex(multiplyComplex(z, z), c);
                 if (isDiverging(z)) {
                     putPixel(x, y, chooseColor(i));
                     break;
                 }
 
-                if (i === MAX_ITERATION - 1) {
+                if (i === iterationNumber - 1) {
                     putPixel(x, y, [1, 1, 1])
                 }
             }
