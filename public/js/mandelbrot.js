@@ -1,43 +1,125 @@
 const HEIGHT_CANVAS = 800
 const WIDTH_CANVAS = 1200
-const INIT_ITERATION_NUMBER = 255
-const INIT_MIN = {x: -2.1, y: -1.1}
-const INIT_MAX = {x: 1.1, y: 1.1}
+const INIT_ITERATION_NUMBER = 1
+const INIT_MIN = { x: -2.1, y: -1.1 }
+const INIT_MAX = { x: 1.1, y: 1.1 }
 
 let zoomF = 0.5;
 let translationF = 0.1;
 let min;
 let max;
-let canvas;
+let canvas, GLSLCanvas;
 let context;
 let iterationNumber;
 
 /*
 TODOS
-- use shader to compute the pixel color
+- use the canvas size instead of redefining HEIGHT_CANVAS and WIDTH_CANVAS
 - unzoom
 - find a way to have beautiful colors
 */
 
-document.addEventListener("DOMContentLoaded", () => {
-    canvas = document.querySelector("#mandelbrot");
-    context = canvas.getContext("2d");
 
-    canvas.addEventListener("click", zoomOnClick);
+function getShaderCode() {
+    return `#ifdef GL_ES
+    precision mediump float;
+    #endif
+
+    uniform vec2 u_resolution;
+    uniform vec2 u_x;
+    uniform vec2 u_y;
+    uniform float u_max_iter;
+
+    float x_coords(float x) {
+        return(u_x[0] + (u_x[1] - u_x[0]) * x);
+    }
+    float y_coords(float y) {
+        return(u_y[0] + (u_y[1] - u_y[0]) * y);
+    }
+
+    vec2 multiply_complex(vec2 z1, vec2 z2) {
+        return vec2(
+            z1[0] * z2[0] - z1[1] * z2[1],
+            z1[0] * z2[1] + z1[1] * z2[0]
+        );
+    }
+    
+    vec2 add_complex(vec2 z1, vec2 z2) {
+        return vec2(
+            z1[0] + z2[0],
+            z1[1] + z2[1]
+        );
+    }
+
+    bool diverged(vec2 z) {
+        return ((z[0] * z[0] + z[1] * z[1]) > 2.0);
+    }
+
+    vec2 z_from_pixel_coords(vec2 coords) {
+        return(vec2(
+            x_coords(coords[0]),
+            y_coords(coords[1])
+        ));
+    }
+
+    vec4 choose_color(float n) {
+        return vec4(n / 255.0, n / 255.0, n / 255.0, 1.0);
+    }
+
+    void main() {
+        vec2 c = z_from_pixel_coords(gl_FragCoord.xy/u_resolution.xy);
+        vec2 z = vec2(.0,.0);
+        
+        for(float i = 0.0; i <= 10000.0; i += 1.0){
+            z = add_complex(multiply_complex(z, z), c);
+            if (diverged(z)) {
+                gl_FragColor = choose_color(i);
+                return;
+            }
+        }
+        gl_FragColor = vec4(c[0],c[1],.0,1.0);
+    }`;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    initGLSLCanvas();
+
+    mandelbrotCanvas = document.querySelector("#mandelbrot-canvas");
+    mandelbrotCanvas.addEventListener("click", zoomOnClick);
+
     document.addEventListener("mousemove", onMouseMove);
     document.querySelector("#reset").addEventListener("click", initialize);
-    document.querySelector("#increase-iteration-1").addEventListener("click", makeIncreaseIterationsBy(1));
-    document.querySelector("#increase-iteration-10").addEventListener("click", makeIncreaseIterationsBy(10));
-    document.querySelector("#increase-iteration-50").addEventListener("click", makeIncreaseIterationsBy(50));
-    document.querySelector("#increase-iteration-250").addEventListener("click", makeIncreaseIterationsBy(250));
-
+    // document.querySelector("#increase-iteration-1").addEventListener("click", makeIncreaseIterationsBy(1));
+    // document.querySelector("#increase-iteration-10").addEventListener("click", makeIncreaseIterationsBy(10));
+    // document.querySelector("#increase-iteration-50").addEventListener("click", makeIncreaseIterationsBy(50));
+    // document.querySelector("#increase-iteration-250").addEventListener("click", makeIncreaseIterationsBy(250));
     document.addEventListener("keydown", translateOnArrowPresses);
     initialize();
 })
 
+function initGLSLCanvas() {
+    const newCanvas = document.createElement("canvas");
+    newCanvas.height = HEIGHT_CANVAS;
+    newCanvas.width = WIDTH_CANVAS;
+    newCanvas.id = "mandelbrot-canvas";
+    GLSLCanvas = new GlslCanvas(newCanvas);
+    GLSLCanvas.load(getShaderCode());
+    GLSLCanvas.height = HEIGHT_CANVAS;
+    GLSLCanvas.width = WIDTH_CANVAS;
+
+    const centralColumn = document.querySelector(".central-column");
+    centralColumn.insertBefore(newCanvas, centralColumn.firstChild);
+}
+
+function sendUniforms() {
+    GLSLCanvas.setUniform("u_x", min.x, max.x);
+    GLSLCanvas.setUniform("u_y", min.y, max.y);
+    GLSLCanvas.setUniform("u_max_iter", iterationNumber);
+}
+
 function translateOnArrowPresses(e) {
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-        switch(e.key) {
+        switch (e.key) {
             case "ArrowUp":
                 min.y -= translationF * displayedHeight();
                 max.y -= translationF * displayedHeight();
@@ -55,41 +137,32 @@ function translateOnArrowPresses(e) {
                 max.x += translationF * displayedHeight();
                 break;
         }
-        displayMandelbrot();
+        sendUniforms();
     }
 }
 
 function makeIncreaseIterationsBy(n) {
-    return function() {
+    return function () {
         iterationNumber += n;
-        displayMandelbrot();
+        sendUniforms();
     }
 }
 
 function initialize() {
-    min = {...INIT_MIN};
-    max = {...INIT_MAX};
+    min = { ...INIT_MIN };
+    max = { ...INIT_MAX };
     iterationNumber = INIT_ITERATION_NUMBER;
-    displayMandelbrot();
+    sendUniforms();
 }
 
 function onMouseMove(e) {
-    /*
-     e.clientX, e.clientY; // same as e.x, e.y - The X coordinate of the mouse pointer in local (DOM content) coordinates.
-    layerX - Returns the horizontal coordinate of the event relative to the current layer. !!!non standard!!!
-    screenX - The X coordinate of the mouse pointer in global (screen) coordinates.
-    offsetX - The X coordinate of the mouse pointer relative to the position of the padding edge of the target node.
-    movementX - The X coordinate of the mouse pointer relative to the position of the last mousemove event.
-    pageX - The X coordinate of the mouse pointer relative to the whole document.
-     */
-
     const mouseInfo = document.querySelector(".mouse-info");
     mouseInfo.replaceChildren();
 
-    displayCoords(mouseInfo, "Layer", {x: e.layerX, y: e.layerY});
-    displayCoords(mouseInfo, "Screen", {x: e.screenX, y: e.screenY});
-    displayCoords(mouseInfo, "Offset", {x: e.offsetX, y: e.offsetY});
-    displayCoords(mouseInfo, "Page", {x: e.pageX, y: e.pageY});
+    displayCoords(mouseInfo, "Layer", { x: e.layerX, y: e.layerY });
+    displayCoords(mouseInfo, "Screen", { x: e.screenX, y: e.screenY });
+    displayCoords(mouseInfo, "Offset", { x: e.offsetX, y: e.offsetY });
+    displayCoords(mouseInfo, "Page", { x: e.pageX, y: e.pageY });
 
     const clicked = {
         x: mathsCoord(min.x, max.x, e.offsetX, WIDTH_CANVAS),
@@ -99,7 +172,7 @@ function onMouseMove(e) {
         x: ((clicked.x - min.x) / displayedWidth()).toFixed(5),
         y: ((clicked.y - min.y) / displayedHeight()).toFixed(5),
     }
-    displayCoords(mouseInfo, "Mandelbrot space", {x: clicked.x.toFixed(5), y: clicked.x.toFixed(5)});
+    displayCoords(mouseInfo, "Mandelbrot space", { x: clicked.x.toFixed(5), y: clicked.x.toFixed(5) });
     displayCoords(mouseInfo, "Proportion", proportion);
     displayNumberIterations(mouseInfo);
 }
@@ -136,6 +209,10 @@ function displayedHeight() {
     return (max.y - min.y);
 }
 
+function mathsCoord(min, max, n, nPixel) {
+    return min + (((max - min) / nPixel) * n);
+}
+
 function zoomOnClick(e) {
     const newWidth = displayedWidth() * zoomF;
     const newHeight = displayedHeight() * zoomF;
@@ -157,72 +234,5 @@ function zoomOnClick(e) {
         x: clicked.x + ((1 - proportion.x) * newWidth),
         y: clicked.y + ((1 - proportion.y) * newHeight)
     }
-    displayMandelbrot();
-}
-
-function mathsCoord(min, max, n, nPixel) {
-    return min + (((max - min) / nPixel) * n);
-}
-
-function isDiverging(z) {
-    return norm(z) > 2;
-}
-
-function norm(z) {
-    return (z.re * z.re + z.im * z.im);
-}
-
-function chooseColor(n) {
-    return [255 - n, 255 - (n % 255), 255 - (n % 255)]
-}
-
-function putPixel(x, y, color) {
-    context.fillStyle = `rgb(${color[0]},${color[1]}, ${color[2]})`;
-    context.fillRect(x, y, 1, 1);
-}
-
-function displayMandelbrot() {
-    for (let x = 0; x < WIDTH_CANVAS; x++) {
-        for (let y = 0; y < HEIGHT_CANVAS; y++) {
-            const c = {
-                re: mathsCoord(min.x, max.x, x, WIDTH_CANVAS),
-                im: mathsCoord(min.y, max.y, y, HEIGHT_CANVAS)
-            }
-
-            let z = c;
-
-            for (let i = 0; i < iterationNumber; i++) {
-                z = addComplex(multiplyComplex(z, z), c);
-                if (isDiverging(z)) {
-                    putPixel(x, y, chooseColor(i));
-                    break;
-                }
-
-                if (i === iterationNumber - 1) {
-                    putPixel(x, y, [1, 1, 1])
-                }
-            }
-        }
-    }
-}
-
-function complex(re, im) {
-    return {
-        re: re,
-        im: im
-    };
-}
-
-function multiplyComplex(z1, z2) {
-    return {
-        re: z1.re * z2.re - z1.im * z2.im,
-        im: z1.re * z2.im + z1.im * z2.re
-    };
-}
-
-function addComplex(z1, z2) {
-    return {
-        re: z1.re + z2.re,
-        im: z1.im + z2.im
-    };
+    sendUniforms();
 }

@@ -6,7 +6,7 @@ const appPort = 3000;
 app.use(express.static('public'))
 
 app.get('/', function (req, res) {
-  res.render('./index.html');
+  res.send('index.html');
 })
 
 app.listen(appPort, function () {
