@@ -1,113 +1,50 @@
 const HEIGHT_CANVAS = 800
 const WIDTH_CANVAS = 1200
-const INIT_ITERATION_NUMBER = 1
+// const INIT_ITERATION_NUMBER = 100
 const INIT_MIN = { x: -2.1, y: -1.1 }
 const INIT_MAX = { x: 1.1, y: 1.1 }
 
-let zoomF = 0.5;
+let zoomF = 0.001;
 let translationF = 0.1;
 let min;
 let max;
 let canvas, GLSLCanvas;
 let context;
-let iterationNumber;
+// let iterationNumber;
 
 /*
 TODOS
-- use the canvas size instead of redefining HEIGHT_CANVAS and WIDTH_CANVAS
+- continuous zoom and continuous translations
+- keep a js version, it has better precision and could come up handy
+- find a way to use arbitrary precision!! or at least double https://github.com/alexozer/glsl-arb-prec
 - unzoom
 - find a way to have beautiful colors
 */
 
-
-function getShaderCode() {
-    return `#ifdef GL_ES
-    precision highp float;
-    #endif
-
-    uniform vec2 u_resolution;
-    uniform vec2 u_x;
-    uniform vec2 u_y;
-    uniform float u_max_iter;
-
-    float x_coords(float x) {
-        return(u_x[0] + (u_x[1] - u_x[0]) * x);
-    }
-    float y_coords(float y) {
-        return(u_y[0] + (u_y[1] - u_y[0]) * y);
-    }
-
-    vec2 multiply_complex(vec2 z1, vec2 z2) {
-        return vec2(
-            z1[0] * z2[0] - z1[1] * z2[1],
-            z1[0] * z2[1] + z1[1] * z2[0]
-        );
-    }
-    
-    vec2 add_complex(vec2 z1, vec2 z2) {
-        return vec2(
-            z1[0] + z2[0],
-            z1[1] + z2[1]
-        );
-    }
-
-    bool diverged(vec2 z) {
-        return ((z[0] * z[0] + z[1] * z[1]) > 2.0);
-    }
-
-    vec2 z_from_pixel_coords(vec2 coords) {
-        return(vec2(
-            x_coords(coords[0]),
-            y_coords(coords[1])
-        ));
-    }
-
-    vec4 choose_color(float n) {
-        return vec4(
-            (255.0 - mod(n, 250.0)) / 255.0, 
-            (255.0 - mod(n, 250.0)) / 255.0,
-            (255.0 - mod(n, 250.0)) / 255.0,
-        1.0);
-    }
-
-    void main() {
-        vec2 c = z_from_pixel_coords(gl_FragCoord.xy/u_resolution.xy);
-        vec2 z = vec2(.0,.0);
-        
-        for(float i = 0.0; i <= 10000.0; i += 1.0){
-            z = add_complex(multiply_complex(z, z), c);
-            if (diverged(z)) {
-                gl_FragColor = choose_color(i);
-                return;
-            }
-        }
-        gl_FragColor = vec4(c[0],c[1],.0,1.0);
-    }`;
+async function getShaderCode() {
+    const response = await fetch('../assets/mandelbrot.frag');
+    return await response.text();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-    initGLSLCanvas();
-
+document.addEventListener("DOMContentLoaded", async () => {
+    await initGLSLCanvas();
     mandelbrotCanvas = document.querySelector("#mandelbrot-canvas");
-    mandelbrotCanvas.addEventListener("click", zoomOnClick);
-
+    // mandelbrotCanvas.addEventListener("click", zoomOnClick);
+    mandelbrotCanvas.addEventListener("mousedown", continuousZoomOnMouseDown);
+    mandelbrotCanvas.addEventListener("mouseup", stopContinuousZoomOnMouseUp);
     document.addEventListener("mousemove", onMouseMove);
     document.querySelector("#reset").addEventListener("click", initialize);
-    // document.querySelector("#increase-iteration-1").addEventListener("click", makeIncreaseIterationsBy(1));
-    // document.querySelector("#increase-iteration-10").addEventListener("click", makeIncreaseIterationsBy(10));
-    // document.querySelector("#increase-iteration-50").addEventListener("click", makeIncreaseIterationsBy(50));
-    // document.querySelector("#increase-iteration-250").addEventListener("click", makeIncreaseIterationsBy(250));
     document.addEventListener("keydown", translateOnArrowPresses);
     initialize();
 })
 
-function initGLSLCanvas() {
+async function initGLSLCanvas() {
     const newCanvas = document.createElement("canvas");
     newCanvas.height = HEIGHT_CANVAS;
     newCanvas.width = WIDTH_CANVAS;
     newCanvas.id = "mandelbrot-canvas";
     GLSLCanvas = new GlslCanvas(newCanvas);
-    GLSLCanvas.load(getShaderCode());
+    GLSLCanvas.load(await getShaderCode());
     GLSLCanvas.height = HEIGHT_CANVAS;
     GLSLCanvas.width = WIDTH_CANVAS;
 
@@ -118,7 +55,7 @@ function initGLSLCanvas() {
 function sendUniforms() {
     GLSLCanvas.setUniform("u_x", min.x, max.x);
     GLSLCanvas.setUniform("u_y", min.y, max.y);
-    GLSLCanvas.setUniform("u_max_iter", iterationNumber);
+    // GLSLCanvas.setUniform("u_max_iter", iterationNumber);
 }
 
 function translateOnArrowPresses(e) {
@@ -145,17 +82,9 @@ function translateOnArrowPresses(e) {
     }
 }
 
-function makeIncreaseIterationsBy(n) {
-    return function () {
-        iterationNumber += n;
-        sendUniforms();
-    }
-}
-
 function initialize() {
     min = { ...INIT_MIN };
     max = { ...INIT_MAX };
-    iterationNumber = INIT_ITERATION_NUMBER;
     sendUniforms();
 }
 
@@ -178,7 +107,6 @@ function onMouseMove(e) {
     }
     displayCoords(mouseInfo, "Mandelbrot space", { x: clicked.x.toFixed(5), y: clicked.x.toFixed(5) });
     displayCoords(mouseInfo, "Proportion", proportion);
-    displayNumberIterations(mouseInfo);
 }
 
 function newDomElement(tag, content, classes) {
@@ -201,9 +129,6 @@ function displayCoords(domElem, title, coords) {
     domElem.appendChild(container);
 }
 
-function displayNumberIterations(domElem) {
-    domElem.appendChild(newDomElement("div", `Number of iterations = ${iterationNumber}`));
-}
 
 function displayedWidth() {
     return (max.x - min.x);
