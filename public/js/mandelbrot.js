@@ -22,7 +22,7 @@ TODOS
 
 function getShaderCode() {
     return `#ifdef GL_ES
-    precision mediump float;
+    precision highp float;
     #endif
 
     uniform vec2 u_resolution;
@@ -63,7 +63,11 @@ function getShaderCode() {
     }
 
     vec4 choose_color(float n) {
-        return vec4(n / 255.0, n / 255.0, n / 255.0, 1.0);
+        return vec4(
+            (255.0 - mod(n, 250.0)) / 255.0, 
+            (255.0 - mod(n, 250.0)) / 255.0,
+            (255.0 - mod(n, 250.0)) / 255.0,
+        1.0);
     }
 
     void main() {
@@ -120,11 +124,11 @@ function sendUniforms() {
 function translateOnArrowPresses(e) {
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
         switch (e.key) {
-            case "ArrowUp":
+            case "ArrowDown":
                 min.y -= translationF * displayedHeight();
                 max.y -= translationF * displayedHeight();
                 break;
-            case "ArrowDown":
+            case "ArrowUp":
                 min.y += translationF * displayedHeight();
                 max.y += translationF * displayedHeight();
                 break;
@@ -166,7 +170,7 @@ function onMouseMove(e) {
 
     const clicked = {
         x: mathsCoord(min.x, max.x, e.offsetX, WIDTH_CANVAS),
-        y: mathsCoord(min.y, max.y, e.offsetY, HEIGHT_CANVAS)
+        y: mathsCoord(min.y, max.y, HEIGHT_CANVAS - e.offsetY, HEIGHT_CANVAS)
     }
     const proportion = {
         x: ((clicked.x - min.x) / displayedWidth()).toFixed(5),
@@ -219,7 +223,7 @@ function zoomOnClick(e) {
 
     const clicked = {
         x: mathsCoord(min.x, max.x, e.offsetX, WIDTH_CANVAS),
-        y: mathsCoord(min.y, max.y, e.offsetY, HEIGHT_CANVAS)
+        y: mathsCoord(min.y, max.y, HEIGHT_CANVAS - e.offsetY, HEIGHT_CANVAS)
     }
     const proportion = {
         x: (clicked.x - min.x) / displayedWidth(),
