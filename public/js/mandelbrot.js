@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     GLSLCanvas = await initGLSLCanvas();
     const mandelbrotCanvas = document.querySelector("#mandelbrot-canvas");
     mandelbrotCanvas.addEventListener("mousedown", continuousZoomOnMouseDown);
-    mandelbrotCanvas.addEventListener("mouseup", stopContinuousZoomOnMouseUp);
+    document.addEventListener("mouseup", stopContinuousZoomOnMouseUp);
     document.addEventListener("mousemove", onMouseMove);
     document.querySelector("#reset").addEventListener("click", initialize);
     document.addEventListener("keydown", translateOnArrowPresses);
