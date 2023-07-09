@@ -51,7 +51,7 @@ void main(){
     vec2 c=z_from_pixel_coords(gl_FragCoord.xy/u_resolution.xy);
     vec2 z=vec2(.0,.0);
     
-    for(float i=0.;i<=10000.;i+=1.){
+    for(float i=0.;i<=1000.;i+=1.){
         z=add_complex(multiply_complex(z,z),c);
         if(diverged(z)){
             gl_FragColor=choose_color(i);

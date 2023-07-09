@@ -1,24 +1,21 @@
 const HEIGHT_CANVAS = 800
 const WIDTH_CANVAS = 1200
-// const INIT_ITERATION_NUMBER = 100
 const INIT_MIN = { x: -2.1, y: -1.1 }
 const INIT_MAX = { x: 1.1, y: 1.1 }
 
-let zoomF = 0.001;
+let zoomF = 0.975;
 let translationF = 0.1;
 let min;
 let max;
 let canvas, GLSLCanvas;
 let context;
-// let iterationNumber;
 
 /*
 TODOS
-- continuous zoom and continuous translations
-- keep a js version, it has better precision and could come up handy
-- find a way to use arbitrary precision!! or at least double https://github.com/alexozer/glsl-arb-prec
-- unzoom
-- find a way to have beautiful colors
+- find a way to use arbitrary precision, or at least double https://github.com/alexozer/glsl-arb-prec
+- unzoom, continuous translations, show FPS
+- make it beautiful
+- is there a way to change maxIterations dynamically?
 */
 
 async function getShaderCode() {
@@ -29,7 +26,6 @@ async function getShaderCode() {
 document.addEventListener("DOMContentLoaded", async () => {
     await initGLSLCanvas();
     mandelbrotCanvas = document.querySelector("#mandelbrot-canvas");
-    // mandelbrotCanvas.addEventListener("click", zoomOnClick);
     mandelbrotCanvas.addEventListener("mousedown", continuousZoomOnMouseDown);
     mandelbrotCanvas.addEventListener("mouseup", stopContinuousZoomOnMouseUp);
     document.addEventListener("mousemove", onMouseMove);
@@ -55,7 +51,6 @@ async function initGLSLCanvas() {
 function sendUniforms() {
     GLSLCanvas.setUniform("u_x", min.x, max.x);
     GLSLCanvas.setUniform("u_y", min.y, max.y);
-    // GLSLCanvas.setUniform("u_max_iter", iterationNumber);
 }
 
 function translateOnArrowPresses(e) {
@@ -142,13 +137,28 @@ function mathsCoord(min, max, n, nPixel) {
     return min + (((max - min) / nPixel) * n);
 }
 
-function zoomOnClick(e) {
+
+let lastEventTimestamp;
+let continuousZoomInterval;
+function stopContinuousZoomOnMouseUp(e) {
+    if (continuousZoomInterval) {
+        window.clearInterval(continuousZoomInterval);
+        continuousZoomInterval = undefined;
+    }
+}
+
+function continuousZoomOnMouseDown(e) {
+    const now = Date.now();
+    continuousZoomInterval = window.setInterval(zoomOnClick.bind({x: e.offsetX, y: e.offsetY}), 50);
+}
+
+function zoomOnClick() {
     const newWidth = displayedWidth() * zoomF;
     const newHeight = displayedHeight() * zoomF;
 
     const clicked = {
-        x: mathsCoord(min.x, max.x, e.offsetX, WIDTH_CANVAS),
-        y: mathsCoord(min.y, max.y, HEIGHT_CANVAS - e.offsetY, HEIGHT_CANVAS)
+        x: mathsCoord(min.x, max.x, this.x, WIDTH_CANVAS),
+        y: mathsCoord(min.y, max.y, HEIGHT_CANVAS - this.y, HEIGHT_CANVAS)
     }
     const proportion = {
         x: (clicked.x - min.x) / displayedWidth(),
